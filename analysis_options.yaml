@@ -13,13 +13,17 @@
 
 include: package:lints/recommended.yaml
 
+analyzer:
+  exclude:
+    - references/**
+
+formatter:
+  page_width: 120
+
 linter:
   rules:
+    comment_references: true
     public_member_api_docs: true
-
-# analyzer:
-#   exclude:
-#     - path/to/excluded/files/**
 
 # For more information about the core and recommended set of lints, see
 # https://dart.dev/go/core-lints
