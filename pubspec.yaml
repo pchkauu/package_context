@@ -1,0 +1,26 @@
+name: package_context
+description: >
+  Define package context and boundaries, and check the allowed dependency
+  direction between packages and the application.
+version: 1.0.0
+repository: https://github.com/pchkauu/package_context
+homepage: https://github.com/pchkauu/package_context
+issue_tracker: https://github.com/pchkauu/package_context/issues
+topics:
+  - architecture
+  - clean-architecture
+
+environment:
+  sdk: ^3.13.2
+
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
