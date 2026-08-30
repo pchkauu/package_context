@@ -5,6 +5,8 @@ Holds one config and one dependency graph for a feature package.
 The app initializes the package at startup. After that the package reads typed
 `config` and `dependencies`. The app never imports `package_context`.
 
+![Architecture, ownership, import direction, and the atomic graph invariant](assets/overview.png)
+
 This is not a DI container. Put host values and host objects here. Keep
 repositories, use cases, and blocs in the package's own container.
 
@@ -38,6 +40,8 @@ dependencies:
 ## Wire a feature package
 
 The samples use a fictional `catalog` package.
+
+![Feature layout, placement decision tree, and package wiring guardrails](assets/boundaries.png)
 
 ### Layout
 
@@ -161,6 +165,8 @@ Future<void> initPackage({
 
 `configureDependencies` registers package-owned types. If the host already
 registered the same type, check `isRegistered` first.
+
+![Application startup, ensureInitialized lifecycle, and package test setup](assets/lifecycle.png)
 
 ### Data layer
 
