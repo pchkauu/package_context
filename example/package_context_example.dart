@@ -10,10 +10,10 @@ final class Config extends package_context.PackageConfig {
   final bool isEnabled;
 
   /// Creates a catalog config.
-  const Config({required this.baseUrl, required this.isEnabled});
-
-  @override
-  List<Object?> get props => [baseUrl, isEnabled];
+  const Config({
+    required this.baseUrl,
+    required this.isEnabled,
+  });
 }
 // #enddocregion
 
@@ -39,10 +39,10 @@ final class Dependencies extends package_context.PackageDependencies {
   final Session session;
 
   /// Creates catalog dependencies.
-  const Dependencies({required this.apiClient, required this.session});
-
-  @override
-  List<Object?> get props => [apiClient, session];
+  const Dependencies({
+    required this.apiClient,
+    required this.session,
+  });
 }
 // #enddocregion
 
@@ -62,32 +62,32 @@ var _isRegistered = false;
 
 // #docregion init_package
 /// Initializes the catalog package once per process graph.
-Future<void> initPackage({required Config config, required Dependencies dependencies}) async {
-  if (packageContext.isInitialized && _isRegistered) {
-    return;
-  }
-
-  if (packageContext.isInitialized) {
-    packageContext.refresh(config: config, dependencies: dependencies);
-  } else {
-    packageContext
-      ..config = config
-      ..dependencies = dependencies;
-  }
-
-  _isRegistered = true;
+Future<void> initPackage({
+  required Config config,
+  required Dependencies dependencies,
+}) {
+  return packageContext.ensureInitialized(
+    graph: package_context.PackageGraph(
+      config: config,
+      dependencies: dependencies,
+    ),
+    isBound: _isRegistered,
+    bind: () async {
+      _isRegistered = true;
+    },
+  );
 }
 // #enddocregion
 
 /// Reads the holder. Takes no host objects in the constructor.
 class CatalogRepository {
+  /// Creates a catalog repository.
+  const CatalogRepository();
+
   /// Loads catalog items for the current session.
   Future<List<int>> fetchItems() {
     return dependencies.apiClient.get(config.baseUrl.resolve('/items'));
   }
-
-  /// Creates a catalog repository.
-  const CatalogRepository();
 }
 
 /// In-memory host client. Uses the session as the "token".
@@ -95,13 +95,15 @@ class MemoryApiClient implements ApiClient {
   /// Session whose user id stands in for an auth token.
   final Session session;
 
+  /// Creates a client bound to [session].
+  MemoryApiClient({
+    required this.session,
+  });
+
   @override
   Future<List<int>> get(Uri url) async {
     return session.userId == 'user-2' ? [2, 2] : [1, 1];
   }
-
-  /// Creates a client bound to [session].
-  MemoryApiClient({required this.session});
 }
 
 /// Host session.
@@ -110,16 +112,25 @@ class AppSession implements Session {
   final String userId;
 
   /// Creates a session for [userId].
-  const AppSession({required this.userId});
+  const AppSession({
+    required this.userId,
+  });
 }
 
 // #docregion host
 void main() async {
-  const firstSession = AppSession(userId: 'user-1');
+  const firstSession = AppSession(
+    userId: 'user-1',
+  );
   await initPackage(
-    config: Config(baseUrl: Uri.parse('https://api.example.com'), isEnabled: true),
+    config: Config(
+      baseUrl: Uri.parse('https://api.example.com'),
+      isEnabled: true,
+    ),
     dependencies: Dependencies(
-      apiClient: MemoryApiClient(session: firstSession),
+      apiClient: MemoryApiClient(
+        session: firstSession,
+      ),
       session: firstSession,
     ),
   );
@@ -128,11 +139,18 @@ void main() async {
 
   _isRegistered = false;
 
-  const nextSession = AppSession(userId: 'user-2');
+  const nextSession = AppSession(
+    userId: 'user-2',
+  );
   await initPackage(
-    config: Config(baseUrl: Uri.parse('https://api.example.com'), isEnabled: true),
+    config: Config(
+      baseUrl: Uri.parse('https://api.example.com'),
+      isEnabled: true,
+    ),
     dependencies: Dependencies(
-      apiClient: MemoryApiClient(session: nextSession),
+      apiClient: MemoryApiClient(
+        session: nextSession,
+      ),
       session: nextSession,
     ),
   );

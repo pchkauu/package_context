@@ -1,8 +1,8 @@
 name: package_context
 description: >
-  Initialize a package's config and dependencies once, and read them from a
-  typed package context.
-version: 1.0.0
+  Initialize a package's config and dependencies as one graph, and read them
+  from a typed package context.
+version: 2.0.0
 repository: https://github.com/pchkauu/package_context
 homepage: https://github.com/pchkauu/package_context
 issue_tracker: https://github.com/pchkauu/package_context/issues
@@ -21,7 +21,6 @@ platforms:
   windows:
 
 dependencies:
-  equatable: ^2.0.8
   meta: ^1.16.0
 
 dev_dependencies:

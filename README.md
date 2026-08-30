@@ -12,6 +12,7 @@ repositories, use cases, and blocs in the package's own container.
 |---|---|---|
 | `PackageConfig` | Values from the host | URL, keys, flags |
 | `PackageDependencies` | Objects the package must not create | HTTP client, session, adapters |
+| `PackageGraph` | Config and dependencies together | The only valid initialized state |
 
 One package — one `PackageContext`. It lives as long as the process.
 
@@ -23,7 +24,7 @@ Add the dependency to the **feature package**, not to the app:
 
 ```yaml
 dependencies:
-  package_context: ^1.0.0
+  package_context: ^2.0.0
 ```
 
 In a monorepo:
@@ -74,9 +75,6 @@ final class Config extends package_context.PackageConfig {
     required this.baseUrl,
     required this.isEnabled,
   });
-
-  @override
-  List<Object?> get props => [baseUrl, isEnabled];
 }
 ```
 
@@ -85,9 +83,6 @@ No values? Keep an empty config:
 ```dart
 final class Config extends package_context.PackageConfig {
   const Config();
-
-  @override
-  List<Object?> get props => [];
 }
 ```
 
@@ -115,9 +110,6 @@ final class Dependencies extends package_context.PackageDependencies {
     required this.apiClient,
     required this.session,
   });
-
-  @override
-  List<Object?> get props => [apiClient, session];
 }
 ```
 
@@ -147,31 +139,23 @@ Call it after the host can build every `Dependencies` field.
 - Already initialized and package DI is alive → return.
 - Holder is alive, package DI was reset (same process, `main()` ran again) →
   `refresh`, then register again.
-- First start → setters, then register.
+- First start → `initialize`, then register.
 
-Do not assign setters twice: they throw `StateError`. Use `refresh`.
+Do not call `initialize` twice. Use `refresh` or `ensureInitialized`.
 
 ```dart
 Future<void> initPackage({
   required Config config,
   required Dependencies dependencies,
-}) async {
-  final isRegistered = getIt.isRegistered<CatalogFacade>();
-  if (packageContext.isInitialized && isRegistered) {
-    return;
-  }
-
-  if (packageContext.isInitialized) {
-    packageContext.refresh(config: config, dependencies: dependencies);
-  } else {
-    packageContext
-      ..config = config
-      ..dependencies = dependencies;
-  }
-
-  if (!isRegistered) {
-    await configureDependencies();
-  }
+}) {
+  return packageContext.ensureInitialized(
+    graph: package_context.PackageGraph(
+      config: config,
+      dependencies: dependencies,
+    ),
+    isBound: getIt.isRegistered<CatalogFacade>(),
+    bind: configureDependencies,
+  );
 }
 ```
 
@@ -220,7 +204,9 @@ await catalog.initPackage(
   ),
   dependencies: catalog.Dependencies(
     apiClient: appApiClient,
-    session: AppSession(auth: auth),
+    session: AppSession(
+      auth: auth,
+    ),
   ),
 );
 ```
@@ -233,12 +219,14 @@ app.
 
 ```dart
 class AppSession implements catalog.Session {
-  AppSession({required this.auth});
-
   final Auth auth;
 
   @override
   String? get userId => auth.currentUserId;
+
+  AppSession({
+    required this.auth,
+  });
 }
 ```
 
@@ -249,13 +237,19 @@ Seed the holder before the suite.
 ```dart
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   if (!packageContext.isInitialized) {
-    packageContext.config = const Config(
-      baseUrl: Uri.parse('https://example.test'),
-      isEnabled: true,
-    );
-    packageContext.dependencies = Dependencies(
-      apiClient: FakeApiClient(),
-      session: const FakeSession(userId: 'user-1'),
+    packageContext.initialize(
+      package_context.PackageGraph(
+        config: const Config(
+          baseUrl: Uri.parse('https://example.test'),
+          isEnabled: true,
+        ),
+        dependencies: Dependencies(
+          apiClient: FakeApiClient(),
+          session: const FakeSession(
+            userId: 'user-1',
+          ),
+        ),
+      ),
     );
   }
 
@@ -270,23 +264,24 @@ Otherwise keep one graph for the suite.
 
 | API | Behavior |
 |---|---|
-| `isInitialized` | `true` only when both values are set |
-| getters | `StateError` if not initialized |
-| setters | `StateError` if already initialized |
-| `refresh` | Replaces both values in place |
-| `reset()` | Tests only. Clears both values |
+| `isInitialized` | `true` only when a `PackageGraph` is set |
+| getters | `PackageContextNotInitialized` if empty |
+| `initialize` | Assigns once. `PackageContextAlreadyInitialized` if already set |
+| `refresh` | Replaces the graph in place |
+| `ensureInitialized` | No-op, refresh, or initialize, then bind |
+| `reset()` | Tests only. Clears the graph |
 
 ## Rules
 
 1. The feature package depends on `package_context`. The app does not.
 2. One `packageContext` per package.
-3. Config holds values. Dependencies hold host objects.
+3. Config holds values. Dependencies hold host objects. Both travel as `PackageGraph`.
 4. The public barrel exports `Config`, `Dependencies`, `initPackage`.
 5. Data and domain read getters. UI does not.
 6. The app calls `initPackage` after every dependency exists.
 7. Host adapters live in the app.
 8. Do not read `String.fromEnvironment` inside the package.
-9. Do not assign setters twice. Use `refresh` or `reset`.
+9. Do not call `initialize` twice. Use `refresh` or `ensureInitialized`.
 
 - Repository: [github.com/pchkauu/package_context](https://github.com/pchkauu/package_context)
 - Issues: [github.com/pchkauu/package_context/issues](https://github.com/pchkauu/package_context/issues)

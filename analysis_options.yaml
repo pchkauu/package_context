@@ -19,11 +19,13 @@ analyzer:
 
 formatter:
   page_width: 120
+  trailing_commas: preserve
 
 linter:
   rules:
     comment_references: true
     public_member_api_docs: true
+    require_trailing_commas: true
 
 # For more information about the core and recommended set of lints, see
 # https://dart.dev/go/core-lints

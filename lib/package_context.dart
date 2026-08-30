@@ -1,6 +1,5 @@
 /// {@template package_context.library}
-/// Process-wide holder for one `PackageConfig` and one `PackageDependencies`
-/// of a feature package.
+/// Process-wide holder for one `PackageGraph` of a feature package.
 ///
 /// The application initializes the package at startup. The package then reads
 /// typed config and dependencies. The application never imports this library.
@@ -16,3 +15,5 @@ library;
 export 'src/config.dart';
 export 'src/context.dart';
 export 'src/dependencies.dart';
+export 'src/errors.dart';
+export 'src/graph.dart';
