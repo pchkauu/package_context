@@ -1,6 +1,8 @@
 import 'package:meta/meta.dart';
 import 'package:package_context/src/config.dart';
 import 'package:package_context/src/dependencies.dart';
+import 'package:package_context/src/errors.dart';
+import 'package:package_context/src/graph.dart';
 
 /// {@template package_context.not_di}
 /// This is not a DI container. Put host values in [PackageConfig] and host
@@ -9,97 +11,106 @@ import 'package:package_context/src/dependencies.dart';
 /// {@endtemplate}
 ///
 /// {@template package_context.PackageContext}
-/// Holds one [config] and one [dependencies] graph for a feature package.
+/// Holds one [PackageGraph] for a feature package.
 ///
 /// {@macro package_context.not_di}
 ///
-/// Setters assign each value once. [refresh] replaces an already-initialized
-/// graph. Reading before initialization throws [StateError].
+/// [initialize] assigns the graph once. [refresh] replaces it. Reading before
+/// initialization throws [PackageContextNotInitialized].
 ///
 /// Keep one top-level instance per package. Do not export it from the package
 /// barrel. Expose typed getters and an `initPackage` entry point instead.
 /// {@endtemplate}
 final class PackageContext<C extends PackageConfig, D extends PackageDependencies> {
-  C? _config;
-  D? _dependencies;
+  PackageGraph<C, D>? _graph;
 
-  /// Whether both [config] and [dependencies] have been assigned.
+  /// Whether a complete [PackageGraph] has been assigned.
   bool get isInitialized {
-    return _config != null && _dependencies != null;
+    return _graph != null;
   }
 
   /// Initialized package config.
   ///
-  /// Throws [StateError] if it has not been assigned yet.
+  /// Throws [PackageContextNotInitialized] if the graph has not been assigned.
   C get config {
-    const op = 'PackageContext.config():';
-    final config = _config;
-    if (config != null) {
-      return config;
-    }
-    throw StateError('$op PackageConfig not initialized');
-  }
-
-  /// Assigns [config] once.
-  ///
-  /// Throws [StateError] if config is already initialized. Use [refresh] to
-  /// replace the graph in the same process.
-  set config(C config) {
-    const op = 'PackageContext.config:';
-    if (_config != null) {
-      throw StateError('$op PackageConfig already initialized');
-    }
-    _config = config;
+    return _requireGraph().config;
   }
 
   /// Initialized package dependencies.
   ///
-  /// Throws [StateError] if they have not been assigned yet.
+  /// Throws [PackageContextNotInitialized] if the graph has not been assigned.
   D get dependencies {
-    const op = 'PackageContext.dependencies():';
-    final dependencies = _dependencies;
-    if (dependencies != null) {
-      return dependencies;
-    }
-    throw StateError('$op PackageDependencies not initialized');
-  }
-
-  /// Assigns [dependencies] once.
-  ///
-  /// Throws [StateError] if dependencies are already initialized. Use
-  /// [refresh] to replace the graph in the same process.
-  set dependencies(D dependencies) {
-    const op = 'PackageContext.dependencies:';
-    if (_dependencies != null) {
-      throw StateError('$op PackageDependencies already initialized');
-    }
-    _dependencies = dependencies;
+    return _requireGraph().dependencies;
   }
 
   /// {@macro package_context.PackageContext}
   PackageContext();
 
-  /// Replaces an already-initialized configuration in place.
+  /// Assigns [graph] once.
   ///
-  /// For in-process app relaunches (integration tests reset GetIt and run
-  /// `main()` again in the same process): the process-wide manager would
-  /// otherwise keep serving the first launch's graph, so package repositories
-  /// would call the backend through the previous launch's Dio — with the
-  /// previous user's token.
-  ///
-  /// Do not use setters after the first init. Use this method.
-  void refresh({required C config, required D dependencies}) {
-    _config = config;
-    _dependencies = dependencies;
+  /// Throws [PackageContextAlreadyInitialized] if the context already holds a
+  /// graph. Use [refresh] to replace it in the same process.
+  void initialize(
+    PackageGraph<C, D> graph,
+  ) {
+    if (isInitialized) {
+      throw PackageContextAlreadyInitialized();
+    }
+    _graph = graph;
   }
 
-  /// Clears [config] and [dependencies] so the context can be initialized
-  /// again.
+  /// Replaces the graph in place.
+  ///
+  /// Use this when the process stays alive but the host rebuilds the graph:
+  /// otherwise later reads would see the previous launch.
+  void refresh(
+    PackageGraph<C, D> graph,
+  ) {
+    _graph = graph;
+  }
+
+  /// Clears the graph so [initialize] can run again.
   ///
   /// Test-only. Production in-process relaunch uses [refresh].
   @visibleForTesting
   void reset() {
-    _config = null;
-    _dependencies = null;
+    _graph = null;
+  }
+
+  /// Initializes or refreshes the graph, then binds package-owned types.
+  ///
+  /// [isBound] is the host's check that its own container still holds the
+  /// package graph. [bind] registers package-owned types. This library does
+  /// not know the container.
+  ///
+  /// - Initialized and bound → no-op.
+  /// - Initialized and unbound → [refresh], then [bind].
+  /// - Empty → [initialize], then [bind].
+  Future<void> ensureInitialized({
+    required PackageGraph<C, D> graph,
+    required bool isBound,
+    required Future<void> Function() bind,
+  }) async {
+    if (isInitialized && isBound) {
+      return;
+    }
+
+    if (isInitialized) {
+      refresh(graph);
+    } else {
+      initialize(graph);
+    }
+
+    if (!isBound) {
+      await bind();
+    }
+  }
+
+  PackageGraph<C, D> _requireGraph() {
+    final graph = _graph;
+    if (graph != null) {
+      return graph;
+    }
+    throw PackageContextNotInitialized();
   }
 }
