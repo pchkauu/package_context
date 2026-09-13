@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## 2.1.0 - 2026-09-13
+
+### Added
+
+- Shared initialization results for concurrent calls with identical config and dependencies objects.
+- `PackageContextInitializationInProgress` for conflicting graphs, reentrant binding, and graph changes during binding.
+- Regression tests for initialization, failure recovery, isolate boundaries, and the test bootstrap example.
+- CI checks on Dart 3.13.2 and stable.
+
+### Changed
+
+- `bind` accepts synchronous and asynchronous callbacks through `FutureOr<void>`.
+- Binding failures retain the graph, preserve the original error and stack trace, and allow explicit retry after host cleanup.
+- Lifecycle documentation specifies all four initialized/bound combinations and isolate-local ownership.
+- README diagrams use a consistent layout and explain graph ownership, wiring, and binding readiness.
+- `make check` checks formatting without rewriting source files and runs the main example.
+
 ## 2.0.1 - 2026-08-30
 
 ### Added

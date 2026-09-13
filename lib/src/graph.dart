@@ -5,6 +5,7 @@ import 'package:package_context/src/dependencies.dart';
 /// A complete host graph: [config] and [dependencies] together.
 ///
 /// The pair is the only valid initialized state. Partial graphs cannot exist.
+/// This describes graph availability, not completion of package binding.
 /// {@endtemplate}
 final class PackageGraph<C extends PackageConfig, D extends PackageDependencies> {
   /// Host values for the feature package.

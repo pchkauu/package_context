@@ -47,7 +47,7 @@ final class Dependencies extends package_context.PackageDependencies {
 // #enddocregion
 
 // #docregion context
-/// Process-wide catalog context. Do not export this from the package barrel.
+/// Isolate-local catalog context. Do not export this from the package barrel.
 final packageContext = package_context.PackageContext<Config, Dependencies>();
 
 /// Typed config getter for package code.
@@ -57,11 +57,11 @@ Config get config => packageContext.config;
 Dependencies get dependencies => packageContext.dependencies;
 // #enddocregion
 
-/// Whether the package DI still holds the catalog facade.
+/// Whether the package registration is fully ready.
 var _isRegistered = false;
 
 // #docregion init_package
-/// Initializes the catalog package once per process graph.
+/// Initializes the catalog package for this isolate's graph.
 Future<void> initPackage({
   required Config config,
   required Dependencies dependencies,
@@ -72,7 +72,7 @@ Future<void> initPackage({
       dependencies: dependencies,
     ),
     isBound: _isRegistered,
-    bind: () async {
+    bind: () {
       _isRegistered = true;
     },
   );
@@ -118,7 +118,7 @@ class AppSession implements Session {
 }
 
 // #docregion host
-void main() async {
+Future<void> main() async {
   const firstSession = AppSession(
     userId: 'user-1',
   );
