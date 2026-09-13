@@ -22,6 +22,7 @@ docs:
 	dart doc --validate-links
 
 check: get
-	dart format --set-exit-if-changed lib test example
+	dart format --output=none --set-exit-if-changed lib test example
 	dart analyze --fatal-infos
 	dart test
+	dart run example/package_context_example.dart
