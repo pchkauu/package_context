@@ -16,7 +16,11 @@ repositories, use cases, and blocs in the package's own container.
 | `PackageDependencies` | Objects the package must not create | HTTP client, session, adapters |
 | `PackageGraph` | Config and dependencies together | The only valid initialized state |
 
-One package — one `PackageContext`. It lives as long as the process.
+Keep one `PackageContext` per feature package in each isolate. New isolates
+have separate global state and must initialize their own context.
+
+An assigned graph makes `config` and `dependencies` available. It does not
+mean package DI is ready: await `ensureInitialized` before using registered types.
 
 An empty `Config` is fine. The instance is still required.
 
@@ -26,7 +30,7 @@ Add the dependency to the **feature package**, not to the app:
 
 ```yaml
 dependencies:
-  package_context: ^2.0.0
+  package_context: ^2.1.0
 ```
 
 In a monorepo:
@@ -39,7 +43,9 @@ dependencies:
 
 ## Wire a feature package
 
-The samples use a fictional `catalog` package.
+The samples use a fictional `catalog` package. The complete
+[runnable example](example/package_context_example.dart) demonstrates the same
+config, dependencies, getters, and bootstrap with an in-memory host.
 
 ![Feature layout, placement decision tree, and package wiring guardrails](assets/boundaries.png)
 
@@ -123,7 +129,7 @@ final class Dependencies extends package_context.PackageDependencies {
 
 ### Context
 
-One singleton. Typed getters. Internal code imports the getters, not
+One context per isolate. Typed getters. Internal code imports the getters, not
 `package_context`.
 
 ```dart
@@ -140,10 +146,14 @@ Dependencies get dependencies => packageContext.dependencies;
 
 Call it after the host can build every `Dependencies` field.
 
-- Already initialized and package DI is alive → return.
-- Holder is alive, package DI was reset (same process, `main()` ran again) →
-  `refresh`, then register again.
-- First start → `initialize`, then register.
+When no binding operation is pending:
+
+| Context | `isBound` | Action |
+|---|---|---|
+| Empty | `false` | Set the graph, then bind |
+| Empty | `true` | Set the graph without binding |
+| Initialized | `false` | Replace the graph, then bind |
+| Initialized | `true` | Keep the previous graph without binding |
 
 Do not call `initialize` twice. Use `refresh` or `ensureInitialized`.
 
@@ -163,10 +173,28 @@ Future<void> initPackage({
 }
 ```
 
-`configureDependencies` registers package-owned types. If the host already
-registered the same type, check `isRegistered` first.
+`configureDependencies` registers package-owned types and can return `void` or
+`Future<void>`. The registration check must become `true` only when all package
+registration has completed. A partially registered facade is not sufficient.
 
-![Application startup, ensureInitialized lifecycle, and package test setup](assets/lifecycle.png)
+While binding is pending, external calls with identical `config` and
+`dependencies` objects receive the same `Future`. A new `PackageGraph` wrapper
+is allowed; the objects themselves are compared by identity, not equality.
+Only the first callback runs, even if a later caller supplies `isBound: true`.
+
+A different graph or reentry from the pending operation's own `bind` returns a
+failed `Future` with `PackageContextInitializationInProgress`. Reentry is rejected
+both before and after `await`, so binding cannot wait on its own completion.
+During binding, `refresh` and `reset` throw the same error synchronously.
+`initialize` still throws `PackageContextAlreadyInitialized`.
+
+The graph is available throughout binding. If binding fails, the graph stays
+assigned and the original error and stack trace reach callers. The library does
+not roll back the host container or retry automatically. The host must clear
+partial registrations, then explicitly retry with `isBound: false`. Await the
+result before reading package-owned registrations.
+
+![Startup, four initialization states, concurrent binding, failure recovery, and tests](assets/lifecycle.png)
 
 ### Data layer
 
@@ -238,49 +266,45 @@ class AppSession implements catalog.Session {
 
 ## Tests
 
-Seed the holder before the suite.
+Assign fresh host objects in `setUp` and call `packageContext.reset()` in
+`tearDown`. Await pending binding before teardown. Each isolate needs its own
+initialization.
 
-```dart
-Future<void> testExecutable(FutureOr<void> Function() testMain) async {
-  if (!packageContext.isInitialized) {
-    packageContext.initialize(
-      package_context.PackageGraph(
-        config: const Config(
-          baseUrl: Uri.parse('https://example.test'),
-          isEnabled: true,
-        ),
-        dependencies: Dependencies(
-          apiClient: FakeApiClient(),
-          session: const FakeSession(
-            userId: 'user-1',
-          ),
-        ),
-      ),
-    );
-  }
-
-  await testMain();
-}
-```
-
-If a test breaks the graph, call `packageContext.reset()` in `tearDown`.
-Otherwise keep one graph for the suite.
+[Test bootstrap](example/test_bootstrap.dart) contains the compiled setup with
+an in-memory client and session. [Bootstrap tests](test/test_bootstrap_test.dart)
+show the `setUp`/`tearDown` wiring and verify repository reads and fresh objects
+after reset. `Uri.parse` runs at runtime, so the containing `Config` invocation
+is not `const`.
 
 ## Contract
 
 | API | Behavior |
 |---|---|
-| `isInitialized` | `true` only when a `PackageGraph` is set |
+| `isInitialized` | `true` when a `PackageGraph` is set; does not report DI readiness |
 | getters | `PackageContextNotInitialized` if empty |
 | `initialize` | Assigns once. `PackageContextAlreadyInitialized` if already set |
-| `refresh` | Replaces the graph in place |
-| `ensureInitialized` | No-op, refresh, or initialize, then bind |
-| `reset()` | Tests only. Clears the graph |
+| `refresh` | Sets or replaces the graph; throws while binding is pending |
+| `ensureInitialized` | Applies the four-state table; shares pending binding for identical host objects |
+| `reset()` | Tests only. Clears the graph; throws while binding is pending |
+
+Pending mutations and conflicting or reentrant initialization use
+`PackageContextInitializationInProgress`. A binding error leaves the graph
+assigned and permits explicit retry after host cleanup.
+
+## Development
+
+The supported Dart SDK range remains `>=3.13.2 <4.0.0`.
+[CI](.github/workflows/ci.yml) checks both Dart 3.13.2 and the stable channel on
+pull requests to `main` and pushes to `main`.
+
+Run `make check` to resolve dependencies, check formatting without rewriting
+source files, analyze, test, and run the main example. `make format` applies
+formatting changes explicitly.
 
 ## Rules
 
 1. The feature package depends on `package_context`. The app does not.
-2. One `packageContext` per package.
+2. One `packageContext` per package in each isolate.
 3. Config holds values. Dependencies hold host objects. Both travel as `PackageGraph`.
 4. The public barrel exports `Config`, `Dependencies`, `initPackage`.
 5. Data and domain read getters. UI does not.
