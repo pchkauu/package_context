@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Package source, tests, and examples conform to the lint and formatter rules in `analysis_options.yaml`.
+- Adopted the stricter analysis and formatter configuration from `domain_error`.
+- Updated the example and tests to satisfy the newly enabled rules.
 
 ## 2.1.0 - 2026-09-13
 

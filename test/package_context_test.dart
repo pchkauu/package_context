@@ -117,11 +117,11 @@ void main() {
 
   group('reset', () {
     test('clears the graph', () {
-      context.initialize(
-        graph(),
-      );
-
-      context.reset();
+      context
+        ..initialize(
+          graph(),
+        )
+        ..reset();
 
       expect(context.isInitialized, isFalse);
       expect(
@@ -135,10 +135,11 @@ void main() {
     });
 
     test('allows initialize after reset', () {
-      context.initialize(
-        graph(),
-      );
-      context.reset();
+      context
+        ..initialize(
+          graph(),
+        )
+        ..reset();
 
       final next = graph(
         apiUrl: 'https://other.example',
