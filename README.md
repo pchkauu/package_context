@@ -41,19 +41,6 @@ dependencies:
     path: ../package_context
 ```
 
-## Lints
-
-Use the package's analysis options to apply the same Dart rules and formatter
-settings:
-
-```yaml
-include: package:package_context/analysis_options.yaml
-```
-
-The shared options include `package:lints/recommended.yaml` and enable
-`comment_references`, `public_member_api_docs`, and `require_trailing_commas`.
-Projects can override individual settings in their own `analysis_options.yaml`.
-
 ## Wire a feature package
 
 The samples use a fictional `catalog` package. The complete
