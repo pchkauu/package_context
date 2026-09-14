@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:package_context/package_context.dart' as package_context;
 
 // #docregion config
@@ -86,6 +88,9 @@ class CatalogRepository {
 
   /// Loads catalog items for the current session.
   Future<List<int>> fetchItems() {
+    if (!config.isEnabled || dependencies.session.userId == null) {
+      return Future.value([]);
+    }
     return dependencies.apiClient.get(config.baseUrl.resolve('/items'));
   }
 }
@@ -135,7 +140,7 @@ Future<void> main() async {
     ),
   );
 
-  print('first launch: ${await const CatalogRepository().fetchItems()}');
+  stdout.writeln('first launch: ${await const CatalogRepository().fetchItems()}');
 
   _isRegistered = false;
 
@@ -155,6 +160,6 @@ Future<void> main() async {
     ),
   );
 
-  print('after refresh: ${await const CatalogRepository().fetchItems()}');
+  stdout.writeln('after refresh: ${await const CatalogRepository().fetchItems()}');
 }
 // #enddocregion
