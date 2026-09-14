@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.2.0 - 2026-09-14
+
+### Added
+
+- Reusable analysis options at `package:package_context/analysis_options.yaml`.
+
+### Changed
+
+- The package now applies its published analysis options to its own source.
+- `lints` is a package dependency so consumers can resolve the inherited recommended rules.
+
 ## 2.1.0 - 2026-09-13
 
 ### Added

@@ -30,7 +30,7 @@ Add the dependency to the **feature package**, not to the app:
 
 ```yaml
 dependencies:
-  package_context: ^2.1.0
+  package_context: ^2.2.0
 ```
 
 In a monorepo:
@@ -40,6 +40,19 @@ dependencies:
   package_context:
     path: ../package_context
 ```
+
+## Lints
+
+Use the package's analysis options to apply the same Dart rules and formatter
+settings:
+
+```yaml
+include: package:package_context/analysis_options.yaml
+```
+
+The shared options include `package:lints/recommended.yaml` and enable
+`comment_references`, `public_member_api_docs`, and `require_trailing_commas`.
+Projects can override individual settings in their own `analysis_options.yaml`.
 
 ## Wire a feature package
 
